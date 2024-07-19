@@ -4,10 +4,10 @@ const dayjs = require('dayjs');
 const jwt = require('jsonwebtoken');
 const { supabase } = require('../db/supbase');
 const { getRandomColor, getUUIDv7, getHashPassword, compareHashPassword } = require('../logic/func');
-const { isValidEmail, isValidAlphabet, isValidPassword } = require('../middleware/utils');
-const { limiter } = require('../middleware/middleware');
+const { isValidEmail, isValidAlphabet, isValidPassword, isValidUUID, decodeToken } = require('../middleware/utils');
+const { limiter, VerifyToken } = require('../middleware/middleware');
 
-userRoute.post('/verify', limiter,  async (req, res) => {
+userRoute.post('/verify', limiter, async (req, res) => {
     // * can only call this api for 5 times within 10 minutes
     // * request = {email, password}
     // * response = { status, message, token(if successful)}
@@ -39,9 +39,9 @@ userRoute.post('/verify', limiter,  async (req, res) => {
         // * if password is correct then return with token else send error message
         if (checkPassword) {
             const accesstoken = jwt.sign(
-                { email: email, userid: user[0].userid },
+                { email: email, userid: user[0].userid, type: "member" },
                 process.env.TOKEN_KEY,
-                { expiresIn: 180 }
+                { algorithm: 'HS256', expiresIn: 60 * 60 * 120 }
             );
             return res.status(200).json({ status: 1, message: "Successfully verified user.", token: accesstoken })
         } else {
@@ -119,9 +119,9 @@ userRoute.post('/signup', async (req, res) => {
         }
 
         const accesstoken = jwt.sign(
-            { email: email, userid: insertBody.userid },
+            { email: email, userid: insertBody.userid, type: "member" },
             process.env.TOKEN_KEY,
-            { expiresIn: 180 }
+            { algorithm: 'HS256', expiresIn: 60 * 60 * 120 }
         );
 
         return res.status(200).json({ status: 1, message: "Successfully Inserted.", token: accesstoken });
@@ -132,12 +132,91 @@ userRoute.post('/signup', async (req, res) => {
     }
 })
 
-userRoute.get('/:userid', async (req, res) => {
-    return res.status(200).json({ status: 1, message: "Successfully built." })
+userRoute.get('/:userid', VerifyToken, async (req, res) => {
+    // * request param = userid
+    // * response = { status, message, data(if successfull) }
+    try {
+        const userid = req.params.userid
+
+        if (!isValidUUID(userid)) {
+            return res.status(400).json({ status: 0, message: "Invalid userid." })
+        }
+
+        const { data: user, getError } = await supabase.from('user')
+            .select('email, profilecolor, firstname, lastname')
+            .eq('userid', userid);
+
+        if (getError) {
+            console.log("getuser_error", getError)
+            return res.status(200).json({ status: 0, message: "Failed to get record." })
+        }
+
+        return res.status(200).json({ status: 1, message: "Successful.", data: user })
+    } catch (error) {
+        console.log("getuser_error", error)
+        return res.status(500).json({ status: 0, message: "Failed to userdetails." });
+    }
 })
 
-userRoute.patch('/:userid', async (req, res) => {
-    return res.status(200).json({ status: 1, message: "Successfully built." })
+userRoute.patch('/:userid', VerifyToken, async (req, res) => {
+    // * request = {firstname, lastname, profilecolor }
+    // * response = { status, message }
+    try {
+
+        const { firstname, lastname, profilecolor } = req.body;
+        const userid = req.params.userid
+
+        const decode = decodeToken(req.headers.authorization);
+
+        if (!isValidUUID(userid)) {
+            return res.status(400).json({ status: 0, message: "Invalid userid." })
+        }
+
+        // * check if token user and given user is same, if not then user is not authorized.
+        if (userid !== decode.userid) {
+            return res.status(401).json({ status: 0, message: "User is not authorized." })
+        }
+
+        if (firstname && !(isValidAlphabet(firstname))) {
+            return res.status(400).json({ status: 0, message: "Firstname should only contain letters." })
+        }
+
+        if (lastname && !(isValidAlphabet(lastname))) {
+            return res.status(400).json({ status: 0, message: "Lastname should only contain letters." })
+        }
+
+        let updatebody = {};
+
+        if (firstname) {
+            updatebody.firstname = firstname
+        }
+
+        if (lastname) {
+            updatebody.lastname = lastname
+        }
+
+        if (profilecolor) {
+            updatebody.profilecolor = profilecolor
+        }
+
+        if (Object.keys(updatebody)?.length > 0) {
+            const { data, error } = await supabase
+                .from('user')
+                .update(updatebody)
+                .eq('userid', userid)
+                .select()
+
+            if (error) {
+                console.log('patchuser_error', error)
+                return res.status(200).json({ status: 0, message: "Failed to update." })
+            }
+            return res.status(200).json({ status: 1, message: "Successfully updated." })
+        }
+        return res.status(200).json({ status: 1, message: "Empty request not updated." })
+    } catch (error) {
+        console.log("patchuser_error", error)
+        return res.status(500).json({ status: 0, message: "Failed to update userdetails." });
+    }
 })
 
 userRoute.delete('/:userid', async (req, res) => {
