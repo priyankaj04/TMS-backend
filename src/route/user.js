@@ -2,7 +2,7 @@ const express = require('express');
 const userRoute = express.Router();
 const dayjs = require('dayjs')
 const jwt = require('jsonwebtoken');
-const supabase = require('../db/supbase');
+const { supabase } = require('../db/supbase');
 const { getRandomColor, getUUIDv7, getHashPassword } = require('../logic/func');
 const { isValidEmail, isValidAlphabet, isValidPassword } = require('../middleware/utils');
 
@@ -51,14 +51,11 @@ userRoute.post('/signup', async (req, res) => {
         }
 
         // * check if email already exists in our system, if already exists then return
-        const { data: user, getError } = await supabase
-            .from('user')
-            .select('email', email)
+        const { data: user, getError } = await supabase.from('user').select('email', email);
 
         if (user?.length > 0) {
             return res.status(400).json({ status: 0, message: "User email already exists in our system." });
         }
-
 
         // * hashing password
         const hashpassword = getHashPassword(password);
@@ -66,26 +63,29 @@ userRoute.post('/signup', async (req, res) => {
         // * getting random color for profile avatar color
         const getProfileColor = getRandomColor();
 
+        const userid = getUUIDv7()
+
         const insertBody = {
-            userid: getUUIDv7(),
-            profilecolor: getProfileColor(),
+            userid: userid,
+            profilecolor: getProfileColor,
             email: email,
             firstname: firstname,
             lastname: lastname,
             password: hashpassword,
-            created_at: dayjs()
+            created_at: dayjs().format(),
+            enabled: true
         }
 
         console.log("signup_data", insertBody);
 
         // * inserting data into supbase user table
-        const { insertdata, insertError } = await supabase
+        const { data, error } = await supabase
             .from('user')
             .insert([insertBody])
             .select()
 
-        if (insertError) {
-            console.log("signup_error", insertError);
+        if (error) {
+            console.log("signup_error", error);
             return res.status(500).json({ status: 0, message: "Failed to insert data." });
         }
 
@@ -98,7 +98,8 @@ userRoute.post('/signup', async (req, res) => {
         return res.status(200).json({ status: 1, message: "Successfully Inserted.", token: accesstoken });
 
     } catch (error) {
-
+        console.log("signup_error", error)
+        return res.status(500).json({ status: 0, message: "Failed to signup."});
     }
 })
 
