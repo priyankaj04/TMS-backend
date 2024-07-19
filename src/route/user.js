@@ -162,7 +162,7 @@ userRoute.get('/:userid', VerifyToken, async (req, res) => {
     }
 })
 
-userRoute.patch('/:userid', VerifyToken, async (req, res) => {
+userRoute.put('/:userid', VerifyToken, async (req, res) => {
     // * request = {firstname, lastname, profilecolor }
     // * response = { status, message }
     try {
@@ -242,7 +242,7 @@ userRoute.patch('/password/:userid', VerifyToken, async (req, res) => {
             return res.status(403).json({ status: 0, message: "User is not authorized." })
         }
 
-        if (isValidPassword(newpassword)) {
+        if (!isValidPassword(newpassword)) {
             return res.status(400).json({ status: 0, message: "New password is not strong password." })
         }
 
