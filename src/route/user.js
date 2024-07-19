@@ -1,18 +1,11 @@
 const express = require('express');
 const userRoute = express.Router();
 const dayjs = require('dayjs');
-const { rateLimit } = require('express-rate-limit');
 const jwt = require('jsonwebtoken');
 const { supabase } = require('../db/supbase');
 const { getRandomColor, getUUIDv7, getHashPassword, compareHashPassword } = require('../logic/func');
 const { isValidEmail, isValidAlphabet, isValidPassword } = require('../middleware/utils');
-
-const limiter = rateLimit({
-	windowMs: 10 * 60 * 1000, // 10 minutes
-	limit: 5, // Limit each IP to 5 requests per `window` (here, per 10 minutes).
-	message: {status: 0, msg: 'Too many password tries from this IP, please try again after 10 minutes'},
-    headers: true, // Send rate limit info in the headers
-})
+const { limiter } = require('../middleware/middleware');
 
 userRoute.post('/verify', limiter,  async (req, res) => {
     // * can only call this api for 5 times within 10 minutes
