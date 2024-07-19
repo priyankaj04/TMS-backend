@@ -24,7 +24,7 @@ userRoute.post('/verify', limiter, async (req, res) => {
         }
 
         // * get user details by emailid
-        const { data: user, getError } = await supabase.from('user').select('email, password, userid').eq('email', email);
+        const { data: user, getError } = await supabase.from('user').select('email, password, userid').eq('email', email).eq('enabled', true);
 
         // * if user doesnot exists then return back
         if (!user?.length || getError) {
@@ -80,7 +80,7 @@ userRoute.post('/signup', async (req, res) => {
         }
 
         // * check if email already exists in our system, if already exists then return
-        const { data: user, getError } = await supabase.from('user').select('email', email);
+        const { data: user, getError } = await supabase.from('user').select('email', email).eq('enabled', true);
 
         if (user?.length > 0) {
             return res.status(400).json({ status: 0, message: "User email already exists in our system." });
@@ -144,14 +144,18 @@ userRoute.get('/:userid', VerifyToken, async (req, res) => {
 
         const { data: user, getError } = await supabase.from('user')
             .select('email, profilecolor, firstname, lastname')
-            .eq('userid', userid);
+            .eq('userid', userid)
+            .eq('enabled', true);
 
         if (getError) {
             console.log("getuser_error", getError)
-            return res.status(200).json({ status: 0, message: "Failed to get record." })
+            return res.status(500).json({ status: 0, message: "Failed to get record." })
         }
 
-        return res.status(200).json({ status: 1, message: "Successful.", data: user })
+        if (user?.length > 0)
+            return res.status(200).json({ status: 1, message: "Successful.", data: user })
+        else
+            return res.status(200).json({ status: 0, message: "No record exists." })
     } catch (error) {
         console.log("getuser_error", error)
         return res.status(500).json({ status: 0, message: "Failed to userdetails." });
@@ -174,7 +178,7 @@ userRoute.patch('/:userid', VerifyToken, async (req, res) => {
 
         // * check if token user and given user is same, if not then user is not authorized.
         if (userid !== decode.userid) {
-            return res.status(401).json({ status: 0, message: "User is not authorized." })
+            return res.status(403).json({ status: 0, message: "User is not authorized." })
         }
 
         if (firstname && !(isValidAlphabet(firstname))) {
@@ -208,19 +212,113 @@ userRoute.patch('/:userid', VerifyToken, async (req, res) => {
 
             if (error) {
                 console.log('patchuser_error', error)
-                return res.status(200).json({ status: 0, message: "Failed to update." })
+                return res.status(500).json({ status: 0, message: "Failed to update." })
             }
             return res.status(200).json({ status: 1, message: "Successfully updated." })
         }
-        return res.status(200).json({ status: 1, message: "Empty request not updated." })
+        return res.status(200).json({ status: 0, message: "Empty request not updated." })
     } catch (error) {
         console.log("patchuser_error", error)
         return res.status(500).json({ status: 0, message: "Failed to update userdetails." });
     }
 })
 
-userRoute.delete('/:userid', async (req, res) => {
-    return res.status(200).json({ status: 1, message: "Successfully built." })
+userRoute.patch('/password/:userid', VerifyToken, async (req, res) => {
+    // * request = { newpassword, oldpassword }
+    // * response = { status, message }
+    try {
+
+        const { newpassword, oldpassword } = req.body;
+        const userid = req.params.userid
+
+        const decode = decodeToken(req.headers.authorization);
+
+        if (!isValidUUID(userid)) {
+            return res.status(400).json({ status: 0, message: "Invalid userid." })
+        }
+
+        // * check if token user and given user is same, if not then user is not authorized.
+        if (userid !== decode.userid) {
+            return res.status(403).json({ status: 0, message: "User is not authorized." })
+        }
+
+        if (isValidPassword(newpassword)) {
+            return res.status(400).json({ status: 0, message: "New password is not strong password." })
+        }
+
+        // * get user details by userid
+        const { data: user, getError } = await supabase.from('user')
+            .select('email, password')
+            .eq('userid', userid)
+            .eq('enabled', true);
+
+        // * user doesnt not exists or failed to fetch then return
+        if (!user?.length || getError) {
+            return res.status(400).json({ status: 0, message: "Record does not exists." })
+        }
+
+        const checkPassword = await compareHashPassword(oldpassword, user[0].password)
+
+        // * if password is incorrect then return
+        if (!checkPassword) {
+            return res.status(400).json({ status: 0, message: "Given password is incorrect." })
+        }
+
+        let newhashedpassword = getHashPassword(newpassword);
+
+        const { data, error } = await supabase
+            .from('user')
+            .update({ password: newhashedpassword })
+            .eq('userid', userid)
+            .select();
+
+        if (error) {
+            console.log("changepassword_error", error)
+            return res.status(500).json({ status: 0, message: "Failed to update new password." })
+        }
+
+        return res.status(200).json({ status: 1, message: "Successfully updated new password." })
+    } catch (error) {
+        console.log("changepassword_error", error)
+        return res.status(500).json({ status: 0, message: "Failed to update user password." });
+    }
+})
+
+userRoute.delete('/:userid', VerifyToken, async (req, res) => {
+    // * request params = userid
+    // * response = { status, message }
+    try {
+
+        const userid = req.params.userid
+
+        const decode = decodeToken(req.headers.authorization);
+
+        if (!isValidUUID(userid)) {
+            return res.status(400).json({ status: 0, message: "Invalid userid." })
+        }
+
+        // * check if token user and given user is same, if not then user is not authorized.
+        if (userid !== decode.userid) {
+            return res.status(403).json({ status: 0, message: "User is not authorized." })
+        }
+
+        const { error } = await supabase
+            .from('user')
+            .delete()
+            .eq('userid', userid)
+            .eq('enabled', true);
+
+        if (error) {
+            console.log('deleteuser_error', error)
+            return res.status(500).json({ status: 0, message: "Failed to deleted user." })
+        }
+
+        return res.status(200).json({ status: 1, message: "Successfully deleted user." })
+
+    } catch (error) {
+        console.log("deleteuser_error", error)
+        return res.status(500).json({ status: 0, message: "Failed to delete user." });
+    }
 })
 
 module.exports = { userRoute }
