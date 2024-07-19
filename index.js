@@ -4,6 +4,8 @@ const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
 
+require('dotenv').config();
+
 const { router } = require('./src/index');
 
 const PORT = 8000;
@@ -37,7 +39,7 @@ app.get('/', async (req, res) => {
 
 // Handle 404 errors
 app.use((req, res, next) => {
-    res.status(404).send('404: Page not found');
+    res.status(404).json({status: 0, message:'404: Page not found'});
 });
 
 // Start the server

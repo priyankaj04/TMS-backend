@@ -7,9 +7,8 @@ CREATE TABLE user(
     firstname VARCHAR(255) NOT NULL,
     lastname VARCHAR(255) NOT NULL,
     password VARCHAR(255) NOT NULL,
-    otp VARCHAR(255),
-    auth VARCHAR(255),
-    enabled BOOLEAN
+    enabled BOOLEAN,
+    created_at TIMESTAMP
 );
 
 CREATE TABLE list(
