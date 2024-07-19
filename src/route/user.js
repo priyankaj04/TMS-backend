@@ -1,30 +1,66 @@
 const express = require('express');
 const userRoute = express.Router();
-const dayjs = require('dayjs')
+const dayjs = require('dayjs');
+const { rateLimit } = require('express-rate-limit');
 const jwt = require('jsonwebtoken');
 const { supabase } = require('../db/supbase');
-const { getRandomColor, getUUIDv7, getHashPassword } = require('../logic/func');
+const { getRandomColor, getUUIDv7, getHashPassword, compareHashPassword } = require('../logic/func');
 const { isValidEmail, isValidAlphabet, isValidPassword } = require('../middleware/utils');
 
-userRoute.post('/verifyotp', async (req, res) => {
-    try {
+const limiter = rateLimit({
+	windowMs: 10 * 60 * 1000, // 10 minutes
+	limit: 5, // Limit each IP to 5 requests per `window` (here, per 10 minutes).
+	message: {status: 0, msg: 'Too many password tries from this IP, please try again after 10 minutes'},
+    headers: true, // Send rate limit info in the headers
+})
 
+userRoute.post('/verify', limiter,  async (req, res) => {
+    // * can only call this api for 5 times within 10 minutes
+    // * request = {email, password}
+    // * response = { status, message, token(if successful)}
+    try {
         const { email, password } = req.body;
 
         if (!(email && password)) {
             return res.status(400).json({ status: 0, message: "email and password required." })
         }
 
-        bcrypt.hash(myPlaintextPassword, saltRounds, function (err, hash) {
-            console.log("hash", hash)
-        });
-    } catch (error) {
+        // * Validating email
+        if (!isValidEmail(email)) {
+            return res.status(400).json({ status: 0, message: "Invalid email id." })
+        }
 
+        // * get user details by emailid
+        const { data: user, getError } = await supabase.from('user').select('email, password, userid').eq('email', email);
+
+        // * if user doesnot exists then return back
+        if (!user?.length || getError) {
+            return res.status(400).json({ status: 0, message: "user emailid does not exists." })
+        }
+
+        console.log("verify_data", user)
+
+        // * check for given password
+        const checkPassword = await compareHashPassword(password, user[0].password)
+
+        // * if password is correct then return with token else send error message
+        if (checkPassword) {
+            const accesstoken = jwt.sign(
+                { email: email, userid: user[0].userid },
+                process.env.TOKEN_KEY,
+                { expiresIn: 180 }
+            );
+            return res.status(200).json({ status: 1, message: "Successfully verified user.", token: accesstoken })
+        } else {
+            return res.status(200).json({ status: 0, message: "Incorrect password." })
+        }
+    } catch (error) {
+        console.log("verify_error", error)
+        return res.status(500).json({ status: 0, message: "Failed to verify." });
     }
 })
 
 userRoute.post('/signup', async (req, res) => {
-
     // * request = {firstname, lastname, email, password}
     // * response = { status, message, token(if successful)}
     try {
@@ -99,7 +135,7 @@ userRoute.post('/signup', async (req, res) => {
 
     } catch (error) {
         console.log("signup_error", error)
-        return res.status(500).json({ status: 0, message: "Failed to signup."});
+        return res.status(500).json({ status: 0, message: "Failed to signup." });
     }
 })
 

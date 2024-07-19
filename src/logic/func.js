@@ -57,13 +57,16 @@ const getRandomColor = () => {
     return bg[getRandomColor];
 }
 
-console.log(getRandomColor())
-
-
-// * hash password and return hashed password
+// * hashing password and return hashed password
 // * used in hashing password in user table
 const getHashPassword = (password) => {
     return bcrypt.hashSync(password, saltRounds);
 }
 
-module.exports = { getRandomColor, getUUIDv7, getHashPassword }
+// * comparing hashed password and current password
+// * used for user verification
+const compareHashPassword = async (password, hash) => {
+    return await bcrypt.compare(password, hash);
+}
+
+module.exports = { getRandomColor, getUUIDv7, getHashPassword, compareHashPassword }
