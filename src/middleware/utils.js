@@ -3,4 +3,20 @@ const isValidEmail = (email) => {
     return emailRegex.test(email);
 }
 
-module.exports = { isValidEmail }
+const isValidAlphabet = (alpha) => {
+    if(!(alpha || alpha == ''))
+      return false
+  
+    const alphabetRegex = /^[a-zA-Z]+$/;
+      return alphabetRegex.test(alpha);
+}
+
+const isValidPassword = (password) => {
+    if(!(password || password == ''))
+      return false
+  
+    const passwordRgex = /^(?=.*[0-9])(?=.*[!@#$%^&*])[a-zA-Z0-9!@#$%^&*]{6,16}$/;
+      return passwordRgex.test(password);
+}
+
+module.exports = { isValidEmail, isValidAlphabet, isValidPassword }
