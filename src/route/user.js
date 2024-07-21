@@ -53,6 +53,42 @@ userRoute.post('/verify', limiter, async (req, res) => {
     }
 })
 
+userRoute.post('/oauth/verify', limiter, async (req, res) => {
+    // * can only call this api for 5 times within 10 minutes
+    // * request = {credential}
+    // * response = { status, message, token(if successful), data (if successful)}
+    try {
+        const { credential } = req.body;
+
+        const url = "https://www.googleapis.com/oauth2/v3/tokeninfo?id_token=" + credential;
+        const publicKeyResponse = await fetch(url).then((res) => res.json());
+
+        const { aud, iss, iat, exp, email } = publicKeyResponse;
+        console.log("email", publicKeyResponse, email);
+        if (!email)
+            return res.status(418).json({ status: 0, msg: "not verified" })
+
+        // * get user details by emailid
+        const { data: user, getError } = await supabase.from('user').select('email, password, userid, profilecolor, firstname, lastname').eq('email', email).eq('enabled', true);
+
+        // * if user doesnot exists then return back
+        if (!user?.length || getError) {
+            return res.status(400).json({ status: 0, message: "user emailid does not exists." })
+        }
+
+        const accesstoken = jwt.sign(
+            { email: email, userid: user[0].userid, type: "member" },
+            process.env.TOKEN_KEY,
+            { algorithm: 'HS256', expiresIn: 60 * 60 * 120 }
+        );
+        return res.status(200).json({ status: 1, message: "Successfully verified user.", token: accesstoken, data: user })
+
+    } catch (error) {
+        console.log("verify_error", error)
+        return res.status(500).json({ status: 0, message: "Failed to verify." });
+    }
+})
+
 userRoute.post('/signup', async (req, res) => {
     // * request = {firstname, lastname, email, password}
     // * response = { status, message, token(if successful), data(if successful)}
@@ -80,7 +116,7 @@ userRoute.post('/signup', async (req, res) => {
         }
 
         // * check if email already exists in our system, if already exists then return
-        const { data: user, getError } = await supabase.from('user').select('email', email).eq('enabled', true);
+        const { data: user, getError } = await supabase.from('user').select('email', email).eq('enabled', true).eq('email', email);
 
         if (user?.length > 0) {
             return res.status(400).json({ status: 0, message: "User email already exists in our system." });
