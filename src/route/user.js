@@ -95,8 +95,8 @@ userRoute.post('/signup', async (req, res) => {
 
         const { firstname, lastname, email, password } = req.body;
 
-        if (!(email && password && firstname && lastname)) {
-            return res.status(400).json({ status: 0, message: "firstname, lastname, email and password required." })
+        if (!(email && password && firstname)) {
+            return res.status(400).json({ status: 0, message: "firstname, email and password required." })
         }
 
         // * Validating email
@@ -105,7 +105,7 @@ userRoute.post('/signup', async (req, res) => {
         }
 
         // * Validating for only alphabets letters in names
-        if (!(isValidAlphabet(firstname) && isValidAlphabet(lastname))) {
+        if (!(isValidAlphabet(firstname))) {
             return res.status(400).json({ status: 0, message: "Name should only contain letters." })
         }
 
@@ -134,7 +134,7 @@ userRoute.post('/signup', async (req, res) => {
             profilecolor: getProfileColor,
             email: email,
             firstname: firstname,
-            lastname: lastname,
+            lastname: lastname ?? '',
             password: hashpassword,
             created_at: dayjs().format(),
             enabled: true
