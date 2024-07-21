@@ -146,20 +146,180 @@ taskRoute.get('/:taskid', async (req, res) => {
     }
 })
 
-taskRoute.get('/search/:term', async (req, res) => {
+taskRoute.get('/search/query', async (req, res) => {
+    // * request query = term, duedate, tags, assignedto, createdby
+    // * response = { status, message, data(if successfull) }
+    try {
+        const { duedate, tags, assignedto, createdby, term } = req.query;
+
+        let query = supabase
+            .from('tasks')
+            .select(`
+                listname,
+                taskname,
+                taskdescription,
+                duedate,
+                created_at,
+                tags,
+                assigned_user: user!inner(
+                    firstname,
+                    lastname,
+                    email,
+                    profilecolor
+                ),
+                created_by: user!inner(
+                    firstname,
+                    lastname,
+                    email,
+                    profilecolor
+                )
+                `)
+            .eq('enabled', true);
+
+        if (term) {
+            query.textSearch('taskname', term, { type: 'websearch', config: "english" })
+        }
+
+        if (duedate) {
+            query.ilike('duedate', '%' + dayjs(duedate).format('DD-MM-YYYY') + '%');
+        }
+
+        if (assignedto) {
+            query.eq('assigned_user', assignedto);
+        }
+
+        if (createdby) {
+            query.eq('created_by', createdby);
+        }
+
+        if (tags) {
+            query.containedBy('tags', tags.split(','));
+        }
+
+        const { data: tasks, error } = await query;
+
+        if (error) {
+            console.log("gettask_error", error)
+            return res.status(500).json({ status: 0, message: "Failed to get record." })
+        }
+
+        if (tasks?.length > 0)
+            return res.status(200).json({ status: 1, message: "Successful.", data: tasks })
+        else
+            return res.status(200).json({ status: 0, message: "No record exists." })
+    } catch (error) {
+        console.log("gettask_error", error)
+        return res.status(500).json({ status: 0, message: "Failed to task details." });
+    }
+})
+
+taskRoute.patch('/:taskid', async (req, res) => {
     return res.status(200).json({ status: 1, message: "Successfully built." })
 })
 
-taskRoute.patch('/', async (req, res) => {
-    return res.status(200).json({ status: 1, message: "Successfully built." })
+taskRoute.put('/:taskid', async (req, res) => {
+    // * request = {taskname, taskdescption, duedate, tags, listname }
+    // * response = { status, message }
+    try {
+
+        const { taskname, taskdescption, duedate, tags, listname } = req.body;
+        const taskid = req.params.taskid
+
+        const decode = decodeToken(req.headers.authorization);
+
+        if (!isValidUUID(taskid)) {
+            return res.status(400).json({ status: 0, message: "Invalid taskid." })
+        }
+
+        // * check if user already exists in our system, if does not exists then return
+        const { data: user, getError } = await supabase.from('user').select('userid', decode.userid).eq('enabled', true);
+
+        if (!user?.length) {
+            return res.status(403).json({ status: 0, message: "Unauthorized user." });
+        }
+
+        let updatebody = {};
+
+        if (taskname) {
+            updatebody.taskname = taskname
+        }
+
+        if (taskdescption) {
+            updatebody.taskdescption = taskdescption
+        }
+
+        if (duedate) {
+            updatebody.duedate = dayjs(duedate).format('DD-MM-YYYY hh:mm a')
+        }
+
+        if (listname) {
+            updatebody.listname = listname
+        }
+
+        if (tags) {
+            if (Array.isArray(tags)) {
+                insertBody.tags = tags
+            } else {
+                insertBody.tags = [tags]
+            }
+        }
+
+        if (Object.keys(updatebody)?.length > 0) {
+            const { data, error } = await supabase
+                .from('user')
+                .update(updatebody)
+                .eq('taskid', taskid)
+                .select()
+
+            if (error) {
+                console.log('puttask_error', error)
+                return res.status(500).json({ status: 0, message: "Failed to update." })
+            }
+            return res.status(200).json({ status: 1, message: "Successfully updated." })
+        }
+        return res.status(200).json({ status: 0, message: "Empty request not updated." })
+    } catch (error) {
+        console.log("puttask_error", error)
+        return res.status(500).json({ status: 0, message: "Failed to update task details." });
+    }
 })
 
-taskRoute.put('/', async (req, res) => {
-    return res.status(200).json({ status: 1, message: "Successfully built." })
-})
+taskRoute.delete('/:taskid', async (req, res) => {
+    // * request params = taskid
+    // * response = { status, message }
+    try {
 
-taskRoute.delete('/', async (req, res) => {
-    return res.status(200).json({ status: 1, message: "Successfully built." })
+        const taskid = req.params.taskid
+        const decode = decodeToken(req.headers.authorization);
+
+        if (!isValidUUID(taskid)) {
+            return res.status(400).json({ status: 0, message: "Invalid taskid." })
+        }
+
+        // * check if user already exists in our system, if does not exists then return
+        const { data: user, getError } = await supabase.from('user').select('userid', decode.userid).eq('enabled', true);
+
+        if (!user?.length) {
+            return res.status(403).json({ status: 0, message: "Unauthorized user." });
+        }
+
+        const { error } = await supabase
+            .from('tasks')
+            .delete()
+            .eq('tasks', taskid)
+            .eq('enabled', true);
+
+        if (error) {
+            console.log('deletetask_error', error)
+            return res.status(500).json({ status: 0, message: "Failed to deleted task." })
+        }
+
+        return res.status(200).json({ status: 1, message: "Successfully deleted task." })
+
+    } catch (error) {
+        console.log("deletetask_error", error)
+        return res.status(500).json({ status: 0, message: "Failed to delete task." });
+    }
 })
 
 module.exports = { taskRoute }
