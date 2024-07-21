@@ -10,7 +10,7 @@ const { limiter, VerifyToken } = require('../middleware/middleware');
 userRoute.post('/verify', limiter, async (req, res) => {
     // * can only call this api for 5 times within 10 minutes
     // * request = {email, password}
-    // * response = { status, message, token(if successful)}
+    // * response = { status, message, token(if successful), data (if successful)}
     try {
         const { email, password } = req.body;
 
@@ -24,7 +24,7 @@ userRoute.post('/verify', limiter, async (req, res) => {
         }
 
         // * get user details by emailid
-        const { data: user, getError } = await supabase.from('user').select('email, password, userid').eq('email', email).eq('enabled', true);
+        const { data: user, getError } = await supabase.from('user').select('email, password, userid, profilecolor, firstname, lastname').eq('email', email).eq('enabled', true);
 
         // * if user doesnot exists then return back
         if (!user?.length || getError) {
@@ -43,7 +43,7 @@ userRoute.post('/verify', limiter, async (req, res) => {
                 process.env.TOKEN_KEY,
                 { algorithm: 'HS256', expiresIn: 60 * 60 * 120 }
             );
-            return res.status(200).json({ status: 1, message: "Successfully verified user.", token: accesstoken })
+            return res.status(200).json({ status: 1, message: "Successfully verified user.", token: accesstoken, data: user })
         } else {
             return res.status(200).json({ status: 0, message: "Incorrect password." })
         }
@@ -55,7 +55,7 @@ userRoute.post('/verify', limiter, async (req, res) => {
 
 userRoute.post('/signup', async (req, res) => {
     // * request = {firstname, lastname, email, password}
-    // * response = { status, message, token(if successful)}
+    // * response = { status, message, token(if successful), data(if successful)}
     try {
 
         const { firstname, lastname, email, password } = req.body;
@@ -124,7 +124,7 @@ userRoute.post('/signup', async (req, res) => {
             { algorithm: 'HS256', expiresIn: 60 * 60 * 120 }
         );
 
-        return res.status(200).json({ status: 1, message: "Successfully Inserted.", token: accesstoken });
+        return res.status(200).json({ status: 1, message: "Successfully Inserted.", token: accesstoken, data: data });
 
     } catch (error) {
         console.log("signup_error", error)
