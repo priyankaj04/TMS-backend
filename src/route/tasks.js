@@ -33,7 +33,7 @@ taskRoute.post('/create', async (req, res) => {
             }
 
             // * check if assigned user already exists in our system, if does not exists then return
-            const { data: assigneduser, usererror } = await supabase.from('user').select('userid', assigned_user).eq('enabled', true);
+            const { data: assigneduser, usererror } = await supabase.from('user').select('userid').eq('userid', assigned_user).eq('enabled', true);
 
             if (!assigneduser?.length) {
                 return res.status(403).json({ status: 0, message: "Assigned user does not exists." });
@@ -42,7 +42,7 @@ taskRoute.post('/create', async (req, res) => {
 
 
         // * check if user already exists in our system, if does not exists then return
-        const { data: user, getError } = await supabase.from('user').select('userid', decode.userid).eq('enabled', true);
+        const { data: user, getError } = await supabase.from('user').select('userid').eq('userid', decode.userid).eq('enabled', true);
 
         if (!user?.length) {
             return res.status(403).json({ status: 0, message: "Unauthorized user." });
@@ -155,6 +155,7 @@ taskRoute.get('/search/query', async (req, res) => {
         let query = supabase
             .from('tasks')
             .select(`
+                taskid,
                 listname,
                 taskname,
                 taskdescription,
@@ -275,11 +276,11 @@ taskRoute.patch('/assign/:taskid/:userid', async (req, res) => {
 })
 
 taskRoute.put('/:taskid', async (req, res) => {
-    // * request = {taskname, taskdescption, duedate, tags, listname, assigned_user }
+    // * request = {taskname, taskdescription, duedate, tags, listname, assigned_user }
     // * response = { status, message }
     try {
 
-        const { taskname, taskdescption, duedate, tags, listname, assigned_user } = req.body;
+        const { taskname, taskdescription, duedate, tags, listname, assigned_user } = req.body;
         const taskid = req.params.taskid
 
         const decode = decodeToken(req.headers.authorization);
@@ -289,7 +290,7 @@ taskRoute.put('/:taskid', async (req, res) => {
         }
 
         // * check if user already exists in our system, if does not exists then return
-        const { data: user, getError } = await supabase.from('user').select('userid', decode.userid).eq('enabled', true);
+        const { data: user, getError } = await supabase.from('user').select('userid').eq('userid', decode.userid).eq('enabled', true);
 
         if (!user?.length) {
             return res.status(403).json({ status: 0, message: "Unauthorized user." });
@@ -301,12 +302,12 @@ taskRoute.put('/:taskid', async (req, res) => {
             updatebody.taskname = taskname
         }
 
-        if (taskdescption) {
-            updatebody.taskdescption = taskdescption
+        if (taskdescription) {
+            updatebody.taskdescription = taskdescription
         }
 
         if (duedate) {
-            updatebody.duedate = dayjs(duedate).format('DD-MM-YYYY hh:mm a')
+            updatebody.duedate = dayjs(duedate).format()
         }
 
         if (listname) {
@@ -318,7 +319,7 @@ taskRoute.put('/:taskid', async (req, res) => {
                 return res.status(400).json({ status: 0, message: "Invalid assigned userid." });
             }
 
-            const { data: assigneduser, getError } = await supabase.from('user').select('userid', assigned_user).eq('enabled', true);
+            const { data: assigneduser, getError } = await supabase.from('user').select('userid').eq('userid', assigned_user).eq('enabled', true);
 
             if (!assigneduser.length) {
                 return res.status(500).json({ status: 0, message: "Assigned user data does not exists." });
@@ -329,15 +330,15 @@ taskRoute.put('/:taskid', async (req, res) => {
 
         if (tags) {
             if (Array.isArray(tags)) {
-                insertBody.tags = tags
+                updatebody.tags = tags
             } else {
-                insertBody.tags = [tags]
+                updatebody.tags = [tags]
             }
         }
 
         if (Object.keys(updatebody)?.length > 0) {
             const { data, error } = await supabase
-                .from('user')
+                .from('tasks')
                 .update(updatebody)
                 .eq('taskid', taskid)
                 .select()
@@ -368,7 +369,7 @@ taskRoute.delete('/:taskid', async (req, res) => {
         }
 
         // * check if user already exists in our system, if does not exists then return
-        const { data: user, getError } = await supabase.from('user').select('userid', decode.userid).eq('enabled', true);
+        const { data: user, getError } = await supabase.from('user').select('userid').eq('userid', decode.userid).eq('enabled', true);
 
         if (!user?.length) {
             return res.status(403).json({ status: 0, message: "Unauthorized user." });
@@ -377,7 +378,7 @@ taskRoute.delete('/:taskid', async (req, res) => {
         const { error } = await supabase
             .from('tasks')
             .delete()
-            .eq('tasks', taskid)
+            .eq('taskid', taskid)
             .eq('enabled', true);
 
         if (error) {

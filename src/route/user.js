@@ -64,7 +64,6 @@ userRoute.post('/oauth/verify', limiter, async (req, res) => {
         const publicKeyResponse = await fetch(url).then((res) => res.json());
 
         const { aud, iss, iat, exp, email } = publicKeyResponse;
-        console.log("email", publicKeyResponse, email);
         if (!email)
             return res.status(418).json({ status: 0, msg: "not verified" })
 
@@ -116,7 +115,7 @@ userRoute.post('/signup', async (req, res) => {
         }
 
         // * check if email already exists in our system, if already exists then return
-        const { data: user, getError } = await supabase.from('user').select('email', email).eq('enabled', true).eq('email', email);
+        const { data: user, getError } = await supabase.from('user').select('email').eq('enabled', true).eq('email', email);
 
         if (user?.length > 0) {
             return res.status(400).json({ status: 0, message: "User email already exists in our system." });
