@@ -213,16 +213,73 @@ taskRoute.get('/search/query', async (req, res) => {
     }
 })
 
-taskRoute.patch('/:taskid', async (req, res) => {
-    return res.status(200).json({ status: 1, message: "Successfully built." })
-})
-
-taskRoute.put('/:taskid', async (req, res) => {
-    // * request = {taskname, taskdescption, duedate, tags, listname }
+taskRoute.patch('/assign/:taskid/:userid', async (req, res) => {
+    // * request = { newpassword, oldpassword }
     // * response = { status, message }
     try {
 
-        const { taskname, taskdescption, duedate, tags, listname } = req.body;
+        const { newpassword, oldpassword } = req.body;
+        const userid = req.params.userid
+
+        const decode = decodeToken(req.headers.authorization);
+
+        if (!isValidUUID(userid)) {
+            return res.status(400).json({ status: 0, message: "Invalid userid." })
+        }
+
+        // * check if token user and given user is same, if not then user is not authorized.
+        if (userid !== decode.userid) {
+            return res.status(403).json({ status: 0, message: "User is not authorized." })
+        }
+
+        if (!isValidPassword(newpassword)) {
+            return res.status(400).json({ status: 0, message: "New password is not strong password." })
+        }
+
+        // * get user details by userid
+        const { data: user, getError } = await supabase.from('user')
+            .select('email, password')
+            .eq('userid', userid)
+            .eq('enabled', true);
+
+        // * user doesnt not exists or failed to fetch then return
+        if (!user?.length || getError) {
+            return res.status(400).json({ status: 0, message: "Record does not exists." })
+        }
+
+        const checkPassword = await compareHashPassword(oldpassword, user[0].password)
+
+        // * if password is incorrect then return
+        if (!checkPassword) {
+            return res.status(400).json({ status: 0, message: "Given password is incorrect." })
+        }
+
+        let newhashedpassword = getHashPassword(newpassword);
+
+        const { data, error } = await supabase
+            .from('user')
+            .update({ password: newhashedpassword })
+            .eq('userid', userid)
+            .select();
+
+        if (error) {
+            console.log("changepassword_error", error)
+            return res.status(500).json({ status: 0, message: "Failed to update new password." })
+        }
+
+        return res.status(200).json({ status: 1, message: "Successfully updated new password." })
+    } catch (error) {
+        console.log("changepassword_error", error)
+        return res.status(500).json({ status: 0, message: "Failed to update user password." });
+    }
+})
+
+taskRoute.put('/:taskid', async (req, res) => {
+    // * request = {taskname, taskdescption, duedate, tags, listname, assigned_user }
+    // * response = { status, message }
+    try {
+
+        const { taskname, taskdescption, duedate, tags, listname, assigned_user } = req.body;
         const taskid = req.params.taskid
 
         const decode = decodeToken(req.headers.authorization);
@@ -254,6 +311,20 @@ taskRoute.put('/:taskid', async (req, res) => {
 
         if (listname) {
             updatebody.listname = listname
+        }
+
+        if (assigned_user) {
+            if (!isValidUUID(assigned_user)) {
+                return res.status(400).json({ status: 0, message: "Invalid assigned userid." });
+            }
+
+            const { data: assigneduser, getError } = await supabase.from('user').select('userid', assigned_user).eq('enabled', true);
+
+            if (!assigneduser.length) {
+                return res.status(500).json({ status: 0, message: "Assigned user data does not exists." });
+            }
+
+            updatebody.assigned_user = assigned_user
         }
 
         if (tags) {
