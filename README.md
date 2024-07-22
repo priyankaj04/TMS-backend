@@ -57,6 +57,10 @@ Starts the server in development mode with nodemon for automatic restarts.
 - **Rate Limiting**: Implemented to control the rate of requests.
 - **bcrypt**: Used for hashing passwords to ensure secure storage.
 
+## Deployment
+
+- This server is hosted on **Vercle** . [Click here](https://tms-backend-eta.vercel.app/)
+
 ## Learn More
 
 To learn more about the technologies used, check out the following resources:
