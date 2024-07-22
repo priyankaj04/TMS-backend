@@ -330,6 +330,7 @@ taskRoute.put('/:taskid', async (req, res) => {
 })
 
 taskRoute.delete('/:taskid', async (req, res) => {
+    // * this is soft deleteing the record, not actually deleting task details from our db record.
     // * request params = taskid
     // * response = { status, message }
     try {
