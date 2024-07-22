@@ -59,7 +59,7 @@ Starts the server in development mode with nodemon for automatic restarts.
 
 ## Deployment
 
-- This server is hosted on **Vercle** . [Click here](https://tms-frontend-omega.vercel.app/login)
+- This server is hosted on **Vercle** . [Click here](https://tms-backend-eta.vercel.app/)
 
 ## Learn More
 
