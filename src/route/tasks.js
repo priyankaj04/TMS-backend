@@ -162,13 +162,13 @@ taskRoute.get('/search/query', async (req, res) => {
                 duedate,
                 created_at,
                 tags,
-                assigned_user: user!inner(
+                assigned_user: user!tasks_assigned_user_fkey(
                     firstname,
                     lastname,
                     email,
                     profilecolor
                 ),
-                created_by: user!inner(
+                created_by: user!tasks_created_by_fkey(
                     firstname,
                     lastname,
                     email,
@@ -232,7 +232,7 @@ taskRoute.patch('/assign/:taskid', async (req, res) => {
 
         const { data, error } = await supabase
             .from('tasks')
-            .update({ assigned_user: userid })
+            .update({ "assigned_user": userid })
             .eq('taskid', taskid)
             .select();
 
