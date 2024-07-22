@@ -203,7 +203,7 @@ userRoute.get('/get/all', VerifyToken, async (req, res) => {
     try {
 
         const { data: user, getError } = await supabase.from('user')
-            .select('userid','email, profilecolor, firstname, lastname')
+            .select('userid, email, profilecolor, firstname, lastname')
             .eq('enabled', true);
 
         if (getError) {
