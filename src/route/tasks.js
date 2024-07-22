@@ -351,7 +351,7 @@ taskRoute.delete('/:taskid', async (req, res) => {
 
         const { error } = await supabase
             .from('tasks')
-            .update({ 'enabled': false, 'deleted_at': dayjs().format(), 'deletedby': decode.userid })
+            .update({ 'enabled': false, 'deleted_at': dayjs().format(), 'deleted_by': decode.userid })
             .eq('taskid', taskid)
 
         if (error) {

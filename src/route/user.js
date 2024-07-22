@@ -344,6 +344,7 @@ userRoute.patch('/password/:userid', VerifyToken, async (req, res) => {
 })
 
 userRoute.delete('/:userid', VerifyToken, async (req, res) => {
+     // * this is soft deleteing the record, not actually deleting user details from our db record.
     // * request params = userid
     // * response = { status, message }
     try {
@@ -363,9 +364,8 @@ userRoute.delete('/:userid', VerifyToken, async (req, res) => {
 
         const { error } = await supabase
             .from('user')
-            .delete()
+            .update({'enabled': false})
             .eq('userid', userid)
-            .eq('enabled', true);
 
         if (error) {
             console.log('deleteuser_error', error)
