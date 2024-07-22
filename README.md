@@ -44,6 +44,10 @@ Starts the server in development mode with nodemon for automatic restarts.
 - **Google OAuth**: Users can authenticate using their Google accounts.
 - **Supabase Integration**: Used for managing the database.
 - **Rate Limiting**: Limits to 5 API logins and signups within 10 minutes to prevent abuse.
+- 
+## Database structure
+
+<img width="655" alt="Screenshot 2024-07-22 at 12 10 04 PM" src="https://github.com/user-attachments/assets/5ac2d2b8-4115-4e11-aba1-fbd297121a22">
 
 ## Tech Stack
 
