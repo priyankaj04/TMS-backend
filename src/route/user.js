@@ -197,6 +197,30 @@ userRoute.get('/:userid', VerifyToken, async (req, res) => {
     }
 })
 
+userRoute.get('/get/all', VerifyToken, async (req, res) => {
+    // * request param = 
+    // * response = { status, message, data(if successfull) }
+    try {
+
+        const { data: user, getError } = await supabase.from('user')
+            .select('userid','email, profilecolor, firstname, lastname')
+            .eq('enabled', true);
+
+        if (getError) {
+            console.log("getuser_error", getError)
+            return res.status(500).json({ status: 0, message: "Failed to get record." })
+        }
+
+        if (user?.length > 0)
+            return res.status(200).json({ status: 1, message: "Successful.", data: user })
+        else
+            return res.status(200).json({ status: 0, message: "No active users exists." })
+    } catch (error) {
+        console.log("getuser_error", error)
+        return res.status(500).json({ status: 0, message: "Failed to userdetails." });
+    }
+})
+
 userRoute.put('/:userid', VerifyToken, async (req, res) => {
     // * request = {firstname, lastname, profilecolor }
     // * response = { status, message }
